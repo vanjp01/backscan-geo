@@ -1,0 +1,22 @@
+services:
+  backscan:
+    build:
+      context: .
+      network: host
+    container_name: backscan
+    restart: unless-stopped
+    ports:
+      - "3002:3000"
+    networks:
+      backscan-network:
+         ipv4_address: 172.31.31.4
+    environment:
+      BOT_TOKEN: "${BOT_TOKEN}"
+      CHAT_ID: "${CHAT_ID}"
+networks:
+  backscan-network:
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: 172.31.31.0/24
+          gateway: 172.31.31.1

